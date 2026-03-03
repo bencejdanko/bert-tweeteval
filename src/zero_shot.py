@@ -62,12 +62,14 @@ def run_benchmarked_inference(df, classifier, candidate_labels, label_id, hypoth
     f1 = f1_score(y_true, preds_ids, average='macro')
     ece = calculate_ece(y_true, np.array(preds_ids), np.array(confidences))
 
-    class_report = classification_report(y_true, preds_ids, target_names=candidate_labels)
+    class_report_str = classification_report(y_true, preds_ids, target_names=candidate_labels)
+    class_report_dict = classification_report(y_true, preds_ids, target_names=candidate_labels, output_dict=True)
 
     return {
         "Accuracy": acc,
         "Macro F1": f1,
         "ECE": ece,
         "Time/100": time_per_100,
-        "Classification Report": class_report
+        "Classification Report": class_report_str,
+        "Classification Report Dict": class_report_dict
     }
