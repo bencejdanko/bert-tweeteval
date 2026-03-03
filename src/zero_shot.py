@@ -11,7 +11,7 @@ def run_zero_shot(df, classifier, candidate_labels, hypothesis_template):
     predictions = classifier(
         texts,
         candidate_labels,
-        hypothesis_template,
+        hypothesis_template=hypothesis_template,
         batch_size=16
     )
 
