@@ -15,7 +15,7 @@ from sklearn.metrics import accuracy_score, f1_score
 
 from analysis import calculate_ece
 
-def train_and_evaluate(model_name, id_to_label, label_to_id, name_label):
+def train_and_evaluate(model_name, train_ds, val_ds, test_ds, name_label):
 
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     model = AutoModelForSequenceClassification.from_pretrained(
