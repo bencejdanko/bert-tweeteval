@@ -11,11 +11,11 @@ from transformers import (
     DataCollatorWithPadding
 )
 from datasets import Dataset
-from sklearn.metrics import accuracy_score, f1_score
+from sklearn.metrics import accuracy_score, f1_score, classification_report
 
 from analysis import calculate_ece
 
-def train_and_evaluate(model_name, train_ds, val_ds, test_ds, name_label):
+def train_and_evaluate(model_name, train_ds, val_ds, test_ds, test_df, name_label, candidate_labels):
 
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     model = AutoModelForSequenceClassification.from_pretrained(
@@ -73,4 +73,7 @@ def train_and_evaluate(model_name, train_ds, val_ds, test_ds, name_label):
     f1 = f1_score(y_true, preds, average='macro')
     ece = calculate_ece(y_true, preds, confidences)
 
-    return {"Accuracy": acc, "Macro F1": f1, "ECE": ece, "Time/100": time_per_100}
+    class_report_str = classification_report(y_true, preds, target_names=candidate_labels)
+    class_report_dict = classification_report(y_true, preds, target_names=candidate_labels, output_dict=True)
+
+    return {"Accuracy": acc, "Macro F1": f1, "ECE": ece, "Time/100": time_per_100, "Classification Report": class_report_str, "Classification Report Dict": class_report_dict}
