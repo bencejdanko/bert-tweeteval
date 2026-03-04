@@ -43,6 +43,7 @@ def train_and_evaluate(model_name, train_ds, val_ds, test_ds, test_df, name_labe
         metric_for_best_model="eval_loss",
         logging_steps=50,
         report_to="none"
+        optim="adamw_torch",
     )
 
     trainer = Trainer(
