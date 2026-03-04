@@ -15,7 +15,47 @@ from sklearn.metrics import accuracy_score, f1_score, classification_report
 
 from analysis import calculate_ece
 
-def train_and_evaluate(model_name, train_ds, val_ds, test_ds, test_df, name_label, candidate_labels):
+def evaluate(trainer, tokenizer, eval_df, name_label, candidate_labels):
+    """
+    Evaluates a trained model on a given dataset (dataframe).
+    """
+    from datasets import Dataset
+    eval_ds = Dataset.from_pandas(eval_df)
+
+    def tokenize_func(examples):
+        return tokenizer(examples["text"], truncation=True, padding=True)
+
+    tokenized_eval = eval_ds.map(tokenize_func, batched=True)
+
+    print(f"Evaluating {name_label} on provided dataset (size: {len(eval_df)})...")
+    start_time = time.time()
+    raw_predictions = trainer.predict(tokenized_eval)
+    end_time = time.time()
+
+    logits = raw_predictions.predictions
+    probs = torch.nn.functional.softmax(torch.tensor(logits), dim=-1).numpy()
+    preds = np.argmax(probs, axis=1)
+    confidences = np.max(probs, axis=1)
+
+    y_true = eval_df["label"].values
+    time_per_100 = ((end_time - start_time) / len(eval_df)) * 100 if len(eval_df) > 0 else 0
+    acc = accuracy_score(y_true, preds)
+    f1 = f1_score(y_true, preds, average='macro')
+    ece = calculate_ece(y_true, preds, confidences)
+
+    class_report_str = classification_report(y_true, preds, target_names=candidate_labels)
+    class_report_dict = classification_report(y_true, preds, target_names=candidate_labels, output_dict=True)
+
+    return {
+        "Accuracy": acc, 
+        "Macro F1": f1, 
+        "ECE": ece, 
+        "Time/100": time_per_100, 
+        "Classification Report": class_report_str, 
+        "Classification Report Dict": class_report_dict
+    }
+
+def train_and_evaluate(model_name, train_ds, val_ds, test_ds, test_df, name_label, candidate_labels, push_to_hub=False, hub_model_id=None):
 
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     model = AutoModelForSequenceClassification.from_pretrained(
@@ -28,7 +68,6 @@ def train_and_evaluate(model_name, train_ds, val_ds, test_ds, test_df, name_labe
 
     tokenized_train = train_ds.map(tokenize_func, batched=True)
     tokenized_val = val_ds.map(tokenize_func, batched=True)
-    tokenized_test = test_ds.map(tokenize_func, batched=True)
 
     training_args = TrainingArguments(
         output_dir=f"./results_{name_label}",
@@ -44,6 +83,9 @@ def train_and_evaluate(model_name, train_ds, val_ds, test_ds, test_df, name_labe
         logging_steps=50,
         report_to="none",
         optim="adamw_torch",
+        push_to_hub=push_to_hub,
+        hub_model_id=hub_model_id,
+        hub_strategy="every_save" if push_to_hub else None,
     )
 
     trainer = Trainer(
@@ -57,24 +99,11 @@ def train_and_evaluate(model_name, train_ds, val_ds, test_ds, test_df, name_labe
 
     trainer.train()
 
-    # Evaluation phase
-    print(f"Evaluating {name_label} on Test Set...")
-    start_time = time.time()
-    raw_predictions = trainer.predict(tokenized_test)
-    end_time = time.time()
+    if push_to_hub:
+        trainer.push_to_hub()
 
-    logits = raw_predictions.predictions
-    probs = torch.nn.functional.softmax(torch.tensor(logits), dim=-1).numpy()
-    preds = np.argmax(probs, axis=1)
-    confidences = np.max(probs, axis=1)
-
-    y_true = test_df["label"].values
-    time_per_100 = ((end_time - start_time) / len(test_df)) * 100
-    acc = accuracy_score(y_true, preds)
-    f1 = f1_score(y_true, preds, average='macro')
-    ece = calculate_ece(y_true, preds, confidences)
-
-    class_report_str = classification_report(y_true, preds, target_names=candidate_labels)
-    class_report_dict = classification_report(y_true, preds, target_names=candidate_labels, output_dict=True)
-
-    return {"Accuracy": acc, "Macro F1": f1, "ECE": ece, "Time/100": time_per_100, "Classification Report": class_report_str, "Classification Report Dict": class_report_dict, "Log History": trainer.state.log_history}
+    # Evaluation phase on standard test set
+    results = evaluate(trainer, tokenizer, test_df, f"{name_label}_StandardTest", candidate_labels)
+    results["Log History"] = trainer.state.log_history
+    
+    return results, trainer, tokenizer
