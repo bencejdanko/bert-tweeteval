@@ -42,7 +42,7 @@ def train_and_evaluate(model_name, train_ds, val_ds, test_ds, test_df, name_labe
         load_best_model_at_end=True,
         metric_for_best_model="eval_loss",
         logging_steps=50,
-        report_to="none"
+        report_to="none",
         optim="adamw_torch",
     )
 
@@ -77,4 +77,4 @@ def train_and_evaluate(model_name, train_ds, val_ds, test_ds, test_df, name_labe
     class_report_str = classification_report(y_true, preds, target_names=candidate_labels)
     class_report_dict = classification_report(y_true, preds, target_names=candidate_labels, output_dict=True)
 
-    return {"Accuracy": acc, "Macro F1": f1, "ECE": ece, "Time/100": time_per_100, "Classification Report": class_report_str, "Classification Report Dict": class_report_dict}
+    return {"Accuracy": acc, "Macro F1": f1, "ECE": ece, "Time/100": time_per_100, "Classification Report": class_report_str, "Classification Report Dict": class_report_dict, "Log History": trainer.state.log_history}

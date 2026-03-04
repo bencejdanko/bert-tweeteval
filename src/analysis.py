@@ -38,3 +38,29 @@ def calculate_ece(y_true, y_preds, confidences, n_bins=10):
             bin_conf = np.mean(confidences[bin_mask])
             ece += (bin_size / total_samples) * np.abs(bin_acc - bin_conf)
     return ece
+
+import matplotlib.pyplot as plt
+import seaborn as sns
+import pandas as pd
+
+def loss_plot(log_history, model_name):
+    train_data = [e for e in log_history if 'loss' in e]
+    eval_data = [e for e in log_history if 'eval_loss' in e]
+    
+    df_train = pd.DataFrame(train_data)
+    df_eval = pd.DataFrame(eval_data)
+    
+    plt.figure(figsize=(12, 6))
+    sns.set_theme(style="whitegrid")
+    
+    if not df_train.empty:
+        plt.plot(df_train['epoch'], df_train['loss'], 'o-', label='Train Loss', color='#1f77b4')
+    if not df_eval.empty:
+        plt.plot(df_eval['epoch'], df_eval['eval_loss'], 's-', label='Validation Loss', color='#ff7f0e')
+        
+    plt.title(f"Training & Validation Loss: {model_name}", fontsize=14, pad=15)
+    plt.xlabel("Epoch", fontsize=12)
+    plt.ylabel("Loss", fontsize=12)
+    plt.legend(frameon=True, facecolor='white')
+    plt.grid(True, linestyle='--', alpha=0.7)
+    plt.show()
