@@ -81,17 +81,18 @@ class LLMEvaluator:
         else:
             eval_df = df.copy()
 
-        predictions = []
-        start_time = time.time()
+        predictions_and_times = []
 
         def process_row(row_data):
             idx, row = row_data
             prompt = prompt_template.format(text=row['text'])
             try:
+                req_start = time.time()
                 if model_type == "openai":
                     pred = self.call_openai_stream(prompt)
                 elif model_type == "hf":
                     pred = self.call_hf(prompt)
+                req_time = time.time() - req_start
                 
                 # Simple cleaning
                 pred_clean = "unknown"
@@ -99,10 +100,10 @@ class LLMEvaluator:
                     if label in pred:
                         pred_clean = label
                         break
-                return pred_clean
+                return pred_clean, req_time
             except Exception as e:
                 print(f"Error at index {idx}: {e}")
-                return "error"
+                return "error", 0.0
 
         if model_type == "openai":
             from concurrent.futures import ThreadPoolExecutor
@@ -111,7 +112,7 @@ class LLMEvaluator:
             
             # Using 10 workers to stay within standard rate limits while being much faster
             with ThreadPoolExecutor(max_workers=10) as executor:
-                predictions = list(tqdm(
+                predictions_and_times = list(tqdm(
                     executor.map(process_row, eval_df.iterrows()), 
                     total=len(eval_df), 
                     desc=f"Evaluating {model_type} (Parallel)"
@@ -120,17 +121,18 @@ class LLMEvaluator:
             # Local HF models typically benefit less from multithreading 
             # due to GIL/GPU bottlenecks, keeping it sequential for stability.
             for idx, row in tqdm(eval_df.iterrows(), total=len(eval_df), desc=f"Evaluating {model_type}"):
-                predictions.append(process_row((idx, row)))
-
-        end_time = time.time()
+                predictions_and_times.append(process_row((idx, row)))
+        
+        predictions = [pt[0] for pt in predictions_and_times]
+        times = [pt[1] for pt in predictions_and_times]
         
         # Metrics
         y_true = [LABELS[i] for i in eval_df['label']]
         acc = accuracy_score(y_true, predictions)
         f1 = f1_score(y_true, predictions, average='macro')
         
-        total_time = end_time - start_time
-        time_per_100 = (total_time / len(eval_df)) * 100
+        avg_time_per_request = sum(times) / len(times) if times else 0
+        time_per_100 = avg_time_per_request * 100
 
         return {
             "Accuracy": acc,
