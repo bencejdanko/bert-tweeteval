@@ -102,7 +102,6 @@ def train_and_evaluate(model_name, train_ds, val_ds, test_ds, test_df, name_labe
     if push_to_hub:
         trainer.push_to_hub()
 
-    # Evaluation phase on standard test set
     results = evaluate(trainer, tokenizer, test_df, f"{name_label}_StandardTest", candidate_labels)
     results["Log History"] = trainer.state.log_history
     
