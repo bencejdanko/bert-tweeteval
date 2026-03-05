@@ -32,7 +32,7 @@ Label:"""
 LABELS = ["anger", "joy", "optimism", "sadness"]
 
 class LLMEvaluator:
-    def __init__(self, openai_api_key=None, hf_model_name="Qwen/Qwen3.5-0.8B"):
+    def __init__(self, openai_api_key=None, hf_model_name="Qwen/Qwen3-4B-Instruct-2507"):
         self.openai_client = OpenAI(api_key=openai_api_key) if openai_api_key else None
         self.hf_model_name = hf_model_name
         self.hf_model = None
