@@ -21,13 +21,13 @@ def run_zero_shot(df, classifier, candidate_labels, hypothesis_template):
 
 DistilBERT_zero_shot_pipeline = pipeline(
     "zero-shot-classification",
-    model="typeform/distilbert-base-uncased-mnli",
+    model="distilbert-base-uncased",
     device=0
 )
 
 DistilRoBERTa_zero_shot_pipeline = pipeline(
     "zero-shot-classification",
-    model="cross-encoder/nli-distilroberta-base",
+    model="distilroberta-base",
     device=0
 )
 
