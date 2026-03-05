@@ -77,7 +77,7 @@ class LLMEvaluator:
     def evaluate(self, df, model_type, prompt_template, num_samples=100):
         # Subset for testing if requested
         if num_samples and len(df) > num_samples:
-            eval_df = df.sample(num_samples, random_state=42).copy()
+            eval_df = df.sample(num_samples, random_state=15179996).copy()
         else:
             eval_df = df.copy()
 
