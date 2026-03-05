@@ -64,3 +64,16 @@ def loss_plot(log_history, model_name):
     plt.legend(frameon=True, facecolor='white')
     plt.grid(True, linestyle='--', alpha=0.7)
     plt.show()
+
+def show_tokenization(text):
+    from zero_shot import DistilBERT_zero_shot_pipeline, DistilRoBERTa_zero_shot_pipeline
+    tokenizer_bert = DistilBERT_zero_shot_pipeline.tokenizer
+    tokenizer_rob = DistilRoBERTa_zero_shot_pipeline.tokenizer
+    
+    tokens_bert = tokenizer_bert.tokenize(text)
+    tokens_rob = tokenizer_rob.tokenize(text)
+    
+    return [
+        {"Tokenizer": "WordPiece", "Model": "DistilBERT", "Tokens": tokens_bert},
+        {"Tokenizer": "BPE", "Model": "DistilRoBERTa", "Tokens": tokens_rob}
+    ]
