@@ -33,10 +33,24 @@ Label:"""
 LABELS = ["anger", "joy", "optimism", "sadness"]
 
 class LLMEvaluator:
-    def __init__(self, openai_api_key=None, hf_model_name="Qwen/Qwen3-4B-Instruct-2507"):
+    def __init__(self, openai_api_key=None, base_url="https://openrouter.ai/api/v1", hf_model_name="Qwen/Qwen3-4B-Instruct-2507"):
         self.openai_api_key = openai_api_key
-        self.openai_client = OpenAI(api_key=openai_api_key) if openai_api_key else None
-        self.openai_async_client = AsyncOpenAI(api_key=openai_api_key) if openai_api_key else None
+        self.openai_client = OpenAI(
+            api_key=openai_api_key,
+            base_url=base_url,
+            default_headers={
+                "HTTP-Referer": "https://github.com/bencejdanko/bert-tweeteval",
+                "X-Title": "BERT TweetEval Research",
+            }
+        ) if openai_api_key else None
+        self.openai_async_client = AsyncOpenAI(
+            api_key=openai_api_key,
+            base_url=base_url,
+            default_headers={
+                "HTTP-Referer": "https://github.com/bencejdanko/bert-tweeteval",
+                "X-Title": "BERT TweetEval Research",
+            }
+        ) if openai_api_key else None
         self.hf_model_name = hf_model_name
         self.hf_model = None
         self.hf_tokenizer = None
@@ -58,7 +72,7 @@ class LLMEvaluator:
         )
 
     @backoff.on_exception(backoff.expo, Exception, max_tries=5)
-    async def _call_openai_async(self, prompt, model="gpt-4o-mini"):
+    async def _call_openai_async(self, prompt, model="openai/gpt-4o-mini"):
         """Single async call to OpenAI."""
         response = await self.openai_async_client.chat.completions.create(
             model=model,
@@ -68,7 +82,7 @@ class LLMEvaluator:
         )
         return response.choices[0].message.content.strip().lower()
 
-    async def _evaluate_batch_openai(self, prompts, model="gpt-4o-mini"):
+    async def _evaluate_batch_openai(self, prompts, model="openai/gpt-4o-mini"):
         """Process a batch of prompts asynchronously."""
         semaphore = asyncio.Semaphore(20) # Limit concurrency to avoid rate limits
         async def sem_call(p):
