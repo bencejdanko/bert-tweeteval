@@ -59,9 +59,7 @@ class LLMEvaluator:
     def load_hf_model(self):
         print(f"Loading HF model: {self.hf_model_name} on {self.device}...")
         self.hf_tokenizer = AutoTokenizer.from_pretrained(self.hf_model_name)
-        # For batched generation with causal LMs, left-padding is required
         self.hf_tokenizer.padding_side = "left"
-        # Ensure pad token is set for batching
         if self.hf_tokenizer.pad_token is None:
             self.hf_tokenizer.pad_token = self.hf_tokenizer.eos_token
         
@@ -73,7 +71,6 @@ class LLMEvaluator:
 
     @backoff.on_exception(backoff.expo, Exception, max_tries=5)
     async def _call_openai_async(self, prompt, model="openai/gpt-4o-mini"):
-        """Single async call to OpenAI."""
         response = await self.openai_async_client.chat.completions.create(
             model=model,
             messages=[{"role": "user", "content": prompt}],
@@ -83,8 +80,7 @@ class LLMEvaluator:
         return response.choices[0].message.content.strip().lower()
 
     async def _evaluate_batch_openai(self, prompts, model="openai/gpt-4o-mini"):
-        """Process a batch of prompts asynchronously."""
-        semaphore = asyncio.Semaphore(20) # Limit concurrency to avoid rate limits
+        semaphore = asyncio.Semaphore(20)
         async def sem_call(p):
             async with semaphore:
                 return await self._call_openai_async(p, model=model)
@@ -145,7 +141,6 @@ class LLMEvaluator:
             normalized_time = (batch_duration / len(batch_df)) * 100
             batch_times.append(normalized_time)
             
-            # Clean results
             for pred in preds:
                 pred_clean = "unknown"
                 for label in LABELS:
