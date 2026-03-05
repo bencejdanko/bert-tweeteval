@@ -74,12 +74,8 @@ class LLMEvaluator:
         response = self.hf_tokenizer.decode(outputs[0][inputs.input_ids.shape[1]:], skip_special_tokens=True)
         return response.strip().lower()
 
-    def evaluate(self, df, model_type, prompt_template, num_samples=100):
-        # Subset for testing if requested
-        if num_samples and len(df) > num_samples:
-            eval_df = df.sample(num_samples, random_state=15179996).copy()
-        else:
-            eval_df = df.copy()
+    def evaluate(self, df, model_type, prompt_template):
+        eval_df = df
 
         predictions_and_times = []
 
@@ -118,8 +114,6 @@ class LLMEvaluator:
                     desc=f"Evaluating {model_type} (Parallel)"
                 ))
         else:
-            # Local HF models typically benefit less from multithreading 
-            # due to GIL/GPU bottlenecks, keeping it sequential for stability.
             for idx, row in tqdm(eval_df.iterrows(), total=len(eval_df), desc=f"Evaluating {model_type}"):
                 predictions_and_times.append(process_row((idx, row)))
         
