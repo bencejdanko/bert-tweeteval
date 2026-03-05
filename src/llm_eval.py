@@ -2,11 +2,12 @@ import time
 import pandas as pd
 import numpy as np
 from sklearn.metrics import accuracy_score, f1_score
-from openai import OpenAI
+from openai import OpenAI, AsyncOpenAI
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from tqdm import tqdm
 import backoff
+import asyncio
 
 # Prompt Templates
 PROMPT_1_MINIMAL = """Classify the following tweet into one of these emotions: anger, joy, optimism, sadness.
@@ -33,7 +34,9 @@ LABELS = ["anger", "joy", "optimism", "sadness"]
 
 class LLMEvaluator:
     def __init__(self, openai_api_key=None, hf_model_name="Qwen/Qwen3-4B-Instruct-2507"):
+        self.openai_api_key = openai_api_key
         self.openai_client = OpenAI(api_key=openai_api_key) if openai_api_key else None
+        self.openai_async_client = AsyncOpenAI(api_key=openai_api_key) if openai_api_key else None
         self.hf_model_name = hf_model_name
         self.hf_model = None
         self.hf_tokenizer = None
@@ -42,96 +45,111 @@ class LLMEvaluator:
     def load_hf_model(self):
         print(f"Loading HF model: {self.hf_model_name} on {self.device}...")
         self.hf_tokenizer = AutoTokenizer.from_pretrained(self.hf_model_name)
+        # For batched generation with causal LMs, left-padding is required
+        self.hf_tokenizer.padding_side = "left"
+        # Ensure pad token is set for batching
+        if self.hf_tokenizer.pad_token is None:
+            self.hf_tokenizer.pad_token = self.hf_tokenizer.eos_token
+        
         self.hf_model = AutoModelForCausalLM.from_pretrained(
             self.hf_model_name,
             torch_dtype="auto",
             device_map="auto"
         )
 
-    def call_openai_stream(self, prompt, model="gpt-4o-mini"):
-        """Utility for OpenAI calls with backoff handled by wrapper."""
-        @backoff.on_exception(backoff.expo, Exception, max_tries=5)
-        def _call():
-            response = self.openai_client.chat.completions.create(
-                model=model,
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0,
-                max_tokens=10
-            )
-            return response.choices[0].message.content.strip().lower()
-        return _call()
+    @backoff.on_exception(backoff.expo, Exception, max_tries=5)
+    async def _call_openai_async(self, prompt, model="gpt-4o-mini"):
+        """Single async call to OpenAI."""
+        response = await self.openai_async_client.chat.completions.create(
+            model=model,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0,
+            max_tokens=10
+        )
+        return response.choices[0].message.content.strip().lower()
 
-    def call_hf(self, prompt):
-        inputs = self.hf_tokenizer(prompt, return_tensors="pt").to(self.device)
+    async def _evaluate_batch_openai(self, prompts, model="gpt-4o-mini"):
+        """Process a batch of prompts asynchronously."""
+        semaphore = asyncio.Semaphore(20) # Limit concurrency to avoid rate limits
+        async def sem_call(p):
+            async with semaphore:
+                return await self._call_openai_async(p, model=model)
+        
+        tasks = [sem_call(p) for p in prompts]
+        return await asyncio.gather(*tasks)
+
+    def call_hf_batch(self, prompts):
+        """Process a batch of prompts using the HF model."""
+        inputs = self.hf_tokenizer(prompts, return_tensors="pt", padding=True).to(self.device)
+        input_length = inputs.input_ids.shape[1]
+        
         with torch.no_grad():
             outputs = self.hf_model.generate(
                 **inputs,
                 max_new_tokens=10,
                 temperature=0.1,
                 do_sample=False,
-                pad_token_id=self.hf_tokenizer.eos_token_id
+                pad_token_id=self.hf_tokenizer.pad_token_id
             )
-        response = self.hf_tokenizer.decode(outputs[0][inputs.input_ids.shape[1]:], skip_special_tokens=True)
-        return response.strip().lower()
+        
+        responses = []
+        for i in range(len(prompts)):
+            decoded = self.hf_tokenizer.decode(outputs[i][input_length:], skip_special_tokens=True)
+            responses.append(decoded.strip().lower())
+        return responses
 
-    def evaluate(self, df, model_type, prompt_template):
-        eval_df = df
+    def evaluate(self, df, model_type, prompt_template, batch_size=100):
+        all_predictions = []
+        batch_times = []
+        
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
 
-        predictions_and_times = []
-
-        def process_row(row_data):
-            idx, row = row_data
-            prompt = prompt_template.format(text=row['text'])
-            try:
-                req_start = time.time()
-                if model_type == "openai":
-                    pred = self.call_openai_stream(prompt)
-                elif model_type == "hf":
-                    pred = self.call_hf(prompt)
-                req_time = time.time() - req_start
-                
-                # Simple cleaning
+        for i in tqdm(range(0, len(df), batch_size), desc=f"Evaluating {model_type} (Batch size {batch_size})"):
+            batch_df = df.iloc[i : i + batch_size]
+            prompts = [prompt_template.format(text=row['text']) for _, row in batch_df.iterrows()]
+            
+            start_time = time.time()
+            if model_type == "openai":
+                if loop.is_running():
+                    try:
+                        import nest_asyncio
+                        nest_asyncio.apply()
+                    except ImportError:
+                        print("Warning: nest_asyncio not found. Async calls in Jupyter might fail. Run '!pip install nest_asyncio'")
+                preds = loop.run_until_complete(self._evaluate_batch_openai(prompts))
+            elif model_type == "hf":
+                preds = self.call_hf_batch(prompts)
+            else:
+                raise ValueError(f"Unknown model_type: {model_type}")
+            
+            end_time = time.time()
+            batch_duration = end_time - start_time
+            normalized_time = (batch_duration / len(batch_df)) * 100
+            batch_times.append(normalized_time)
+            
+            # Clean results
+            for pred in preds:
                 pred_clean = "unknown"
                 for label in LABELS:
                     if label in pred:
                         pred_clean = label
                         break
-                return pred_clean, req_time
-            except Exception as e:
-                print(f"Error at index {idx}: {e}")
-                return "error", 0.0
+                all_predictions.append(pred_clean)
 
-        if model_type == "openai":
-            from concurrent.futures import ThreadPoolExecutor
-            if not self.openai_client:
-                raise ValueError("OpenAI client not initialized. Provide API key.")
-            
-            # Using 10 workers to stay within standard rate limits while being much faster
-            with ThreadPoolExecutor(max_workers=10) as executor:
-                predictions_and_times = list(tqdm(
-                    executor.map(process_row, eval_df.iterrows()), 
-                    total=len(eval_df), 
-                    desc=f"Evaluating {model_type} (Parallel)"
-                ))
-        else:
-            for idx, row in tqdm(eval_df.iterrows(), total=len(eval_df), desc=f"Evaluating {model_type}"):
-                predictions_and_times.append(process_row((idx, row)))
+        y_true = [LABELS[i] for i in df['label']]
+        acc = accuracy_score(y_true[:len(all_predictions)], all_predictions)
+        f1 = f1_score(y_true[:len(all_predictions)], all_predictions, average='macro')
         
-        predictions = [pt[0] for pt in predictions_and_times]
-        times = [pt[1] for pt in predictions_and_times]
-        
-        # Metrics
-        y_true = [LABELS[i] for i in eval_df['label']]
-        acc = accuracy_score(y_true, predictions)
-        f1 = f1_score(y_true, predictions, average='macro')
-        
-        avg_time_per_request = sum(times) / len(times) if times else 0
-        time_per_100 = avg_time_per_request * 100
+        avg_time_per_100 = sum(batch_times) / len(batch_times) if batch_times else 0
 
         return {
             "Accuracy": acc,
             "Macro-F1": f1,
-            "Time_per_100": time_per_100,
-            "Predictions": predictions,
+            "Time_per_100": avg_time_per_100,
+            "Predictions": all_predictions,
             "True_Labels": y_true
         }
