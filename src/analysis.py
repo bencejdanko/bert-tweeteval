@@ -2,19 +2,21 @@ import pandas as pd
 import numpy as np
 
 def print_samples(df, labels, n=5):
-    print(f"{'Label':<12} | {'Tweet Text'}")
-    print("-" * 50)
-    for _, row in df.sample(n).iterrows():
-        label_name = labels[row['label']]
-        text = row['text'].replace('\n', ' ')
-        print(f"{label_name:<12} | {text[:80]}...")
+    from IPython.display import display
+    
+    sample_df = df.sample(n).copy()
+    sample_df['Label'] = sample_df['label'].apply(lambda x: labels[x])
+    sample_df['Tweet Text'] = sample_df['text'].str.replace('\n', ' ')
+    
+    display_df = sample_df[['Label', 'Tweet Text']]
+    display(display_df)
 
 def print_distribution(train_df, test_df, labels):
-    print(f"\n--- Data Split Summary ---")
+    print(f"\nData Split")
     print(f"Training set: {len(train_df)}")
     print(f"Testing set:  {len(test_df)}")
 
-    print("\n--- Class Distribution (Counts) ---")
+    print("\nClass Distribution (Counts)")
     train_counts = train_df['label'].map(labels).value_counts()
     test_counts = test_df['label'].map(labels).value_counts()
 
