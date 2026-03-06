@@ -56,6 +56,8 @@ def evaluate(trainer, tokenizer, eval_df, name_label, candidate_labels):
     }
 
 def train_and_evaluate(model_name, train_ds, val_ds, test_ds, test_df, name_label, candidate_labels, push_to_hub=False, hub_model_id=None):
+    from transformers import set_seed
+    set_seed(15179996)
 
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     model = AutoModelForSequenceClassification.from_pretrained(
