@@ -51,24 +51,42 @@ import pandas as pd
 
 def loss_plot(log_history, model_name):
     train_data = [e for e in log_history if 'loss' in e]
-    eval_data = [e for e in log_history if 'eval_loss' in e]
+    eval_loss_data = [e for e in log_history if 'eval_loss' in e]
+    eval_f1_data = [e for e in log_history if 'eval_f1' in e]
     
     df_train = pd.DataFrame(train_data)
-    df_eval = pd.DataFrame(eval_data)
+    df_eval_loss = pd.DataFrame(eval_loss_data)
+    df_eval_f1 = pd.DataFrame(eval_f1_data)
     
-    plt.figure(figsize=(12, 6))
+    fig, ax1 = plt.subplots(figsize=(12, 6))
     sns.set_theme(style="whitegrid")
     
+    # Plot losses on primary y-axis
     if not df_train.empty:
-        plt.plot(df_train['epoch'], df_train['loss'], 'o-', label='Train Loss', color='#1f77b4')
-    if not df_eval.empty:
-        plt.plot(df_eval['epoch'], df_eval['eval_loss'], 's-', label='Validation Loss', color='#ff7f0e')
+        ax1.plot(df_train['epoch'], df_train['loss'], 'o-', label='Train Loss', color='#1f77b4')
+    if not df_eval_loss.empty:
+        ax1.plot(df_eval_loss['epoch'], df_eval_loss['eval_loss'], 's-', label='Validation Loss', color='#ff7f0e')
         
-    plt.title(f"Training & Validation Loss: {model_name}", fontsize=14, pad=15)
-    plt.xlabel("Epoch", fontsize=12)
-    plt.ylabel("Loss", fontsize=12)
-    plt.legend(frameon=True, facecolor='white')
-    plt.grid(True, linestyle='--', alpha=0.7)
+    ax1.set_xlabel("Epoch", fontsize=12)
+    ax1.set_ylabel("Loss", fontsize=12)
+    ax1.grid(True, linestyle='--', alpha=0.7)
+    
+    # Plot Macro F1 on secondary y-axis
+    if not df_eval_f1.empty:
+        ax2 = ax1.twinx()
+        ax2.plot(df_eval_f1['epoch'], df_eval_f1['eval_f1'], 'd-', label='Validation Macro F1', color='#2ca02c')
+        ax2.set_ylabel("Macro F1", fontsize=12)
+        ax2.grid(False)
+        
+        # Combine legends
+        lines_1, labels_1 = ax1.get_legend_handles_labels()
+        lines_2, labels_2 = ax2.get_legend_handles_labels()
+        ax1.legend(lines_1 + lines_2, labels_1 + labels_2, frameon=True, facecolor='white', loc='center right')
+    else:
+        ax1.legend(frameon=True, facecolor='white')
+
+    plt.title(f"Training Metrics: {model_name}", fontsize=14, pad=15)
+    plt.tight_layout()
     plt.show()
 
 def show_tokenization(text):
