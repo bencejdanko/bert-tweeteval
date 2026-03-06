@@ -12,7 +12,7 @@ def run_zero_shot(df, classifier, candidate_labels, hypothesis_template):
         texts,
         candidate_labels,
         hypothesis_template=hypothesis_template,
-        batch_size=16
+        batch_size=100
     )
 
     # Extract the top predicted label
@@ -42,7 +42,7 @@ def run_benchmarked_inference(df, classifier, candidate_labels, label_id, hypoth
         texts,
         candidate_labels,
         hypothesis_template=hypothesis_template,
-        batch_size=16
+        batch_size=100
     )
 
     end_time = time.time()

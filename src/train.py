@@ -73,7 +73,7 @@ def train_and_evaluate(model_name, train_ds, val_ds, test_ds, test_df, name_labe
         output_dir=f"./results_{name_label}",
         num_train_epochs=20,
         per_device_train_batch_size=16,
-        per_device_eval_batch_size=16,
+        per_device_eval_batch_size=100,
         learning_rate=2e-5,
         weight_decay=0.01,
         eval_strategy="epoch",
