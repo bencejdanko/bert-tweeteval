@@ -33,7 +33,11 @@ def calculate_ece(y_true, y_preds, confidences, n_bins=10):
     total_samples = len(y_true)
     accuracies = (y_preds == y_true)
     for i in range(n_bins):
-        bin_mask = (confidences > bin_boundaries[i]) & (confidences <= bin_boundaries[i+1])
+        if i == 0:
+            bin_mask = (confidences >= bin_boundaries[i]) & (confidences <= bin_boundaries[i+1])
+        else:
+            bin_mask = (confidences > bin_boundaries[i]) & (confidences <= bin_boundaries[i+1])
+        
         bin_size = np.sum(bin_mask)
         if bin_size > 0:
             bin_acc = np.mean(accuracies[bin_mask])
