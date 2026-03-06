@@ -4,9 +4,7 @@ import string
 
 def introduce_typos(text, prob=0.1):
     """
-    Randomly introduces typos into a given text.
-    For each word, there's a `prob` chance of a typo.
-    Typos can be: swapping adjacent characters, deleting a character, or inserting a random character.
+    Randomly introduces typos into a given text
     """
     words = text.split()
     new_words = []
@@ -33,8 +31,8 @@ def introduce_typos(text, prob=0.1):
 
 def split_hashtags(text, prob=0.5):
     """
-    Identifies hashtags and splits them into constituent words based on CamelCase or just removing the #.
-    Example: #HappyDay -> Happy Day
+    Identifies hashtags and splits them into constituent 
+    words based on CamelCase or removing the hashtag.
     """
     def repl(match):
         if random.random() < prob:
@@ -66,10 +64,6 @@ def remove_emojis(text):
     return emoji_pattern.sub(r'', text)
 
 def apply_corruptions(text, corruptions):
-    """
-    Applies a list of corruptions to the text.
-    Corruptions can be: 'typos', 'hashtag_split', 'emoji_removal'
-    """
     if 'typos' in corruptions:
         text = introduce_typos(text)
     if 'hashtag_split' in corruptions:
@@ -80,7 +74,7 @@ def apply_corruptions(text, corruptions):
 
 def create_corruption_ablations(df):
     """
-    Creates a dictionary of corrupted dataframes for ablation studies.
+    Creates a dictionary of corrupted dataframes for ablation.
     """
     ablations = {
         "original": df.copy(),
