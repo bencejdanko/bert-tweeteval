@@ -69,6 +69,13 @@ def train_and_evaluate(model_name, train_ds, val_ds, test_ds, test_df, name_labe
     tokenized_train = train_ds.map(tokenize_func, batched=True)
     tokenized_val = val_ds.map(tokenize_func, batched=True)
 
+    def compute_metrics(eval_pred):
+        logits, labels = eval_pred
+        predictions = np.argmax(logits, axis=-1)
+        acc = accuracy_score(labels, predictions)
+        f1 = f1_score(labels, predictions, average='macro')
+        return {"accuracy": acc, "f1": f1}
+
     training_args = TrainingArguments(
         output_dir=f"./results_{name_label}",
         num_train_epochs=20,
@@ -79,7 +86,8 @@ def train_and_evaluate(model_name, train_ds, val_ds, test_ds, test_df, name_labe
         eval_strategy="epoch",
         save_strategy="epoch",
         load_best_model_at_end=True,
-        metric_for_best_model="eval_loss",
+        metric_for_best_model="eval_f1",
+        greater_is_better=True,
         logging_steps=50,
         report_to="none",
         optim="adamw_torch",
@@ -96,6 +104,7 @@ def train_and_evaluate(model_name, train_ds, val_ds, test_ds, test_df, name_labe
         train_dataset=tokenized_train,
         eval_dataset=tokenized_val,
         data_collator=DataCollatorWithPadding(tokenizer=tokenizer),
+        compute_metrics=compute_metrics,
         callbacks=[EarlyStoppingCallback(early_stopping_patience=3)]
     )
 
