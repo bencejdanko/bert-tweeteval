@@ -38,7 +38,7 @@ def evaluate(trainer, tokenizer, eval_df, name_label, candidate_labels):
     confidences = np.max(probs, axis=1)
 
     y_true = eval_df["label"].values
-    time_per_100 = ((end_time - start_time) / len(eval_df)) * 100 if len(eval_df) > 0 else 0
+    time_per_100 = (((end_time - start_time) * 1000) / len(eval_df)) * 100 if len(eval_df) > 0 else 0
     acc = accuracy_score(y_true, preds)
     f1 = f1_score(y_true, preds, average='macro')
     ece = calculate_ece(y_true, preds, confidences)
@@ -86,6 +86,8 @@ def train_and_evaluate(model_name, train_ds, val_ds, test_ds, test_df, name_labe
         push_to_hub=push_to_hub,
         hub_model_id=hub_model_id,
         hub_strategy="every_save" if push_to_hub else None,
+        seed=15179996,
+        data_seed=15179996,
     )
 
     trainer = Trainer(

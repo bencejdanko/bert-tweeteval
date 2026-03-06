@@ -1,10 +1,10 @@
 import pandas as pd
 import numpy as np
 
-def print_samples(df, labels, n=5):
+def print_samples(df, labels, n=5, random_state=15179996):
     from IPython.display import display
     
-    sample_df = df.sample(n).copy()
+    sample_df = df.sample(n, random_state=random_state).copy()
     sample_df['Label'] = sample_df['label'].apply(lambda x: labels[x])
     sample_df['Tweet Text'] = sample_df['text'].str.replace('\n', ' ')
     

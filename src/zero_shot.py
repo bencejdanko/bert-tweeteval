@@ -48,8 +48,8 @@ def run_benchmarked_inference(df, classifier, candidate_labels, label_id, hypoth
     end_time = time.time()
 
     # calculate time per 100 samples.
-    total_time = end_time - start_time
-    time_per_100 = (total_time / len(texts)) * 100
+    total_time_ms = (end_time - start_time) * 1000
+    time_per_100 = (total_time_ms / len(texts)) * 100
 
     # Extract predicted labels and their confidences.
     preds_labels = [res['labels'][0] for res in raw_results]

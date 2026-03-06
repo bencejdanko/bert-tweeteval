@@ -137,8 +137,8 @@ class LLMEvaluator:
                 raise ValueError(f"Unknown model_type: {model_type}")
             
             end_time = time.time()
-            batch_duration = end_time - start_time
-            normalized_time = (batch_duration / len(batch_df)) * 100
+            batch_duration_ms = (end_time - start_time) * 1000
+            normalized_time = (batch_duration_ms / len(batch_df)) * 100
             batch_times.append(normalized_time)
             
             for pred in preds:
